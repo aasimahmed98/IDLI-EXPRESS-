@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Idli Express — Checkout</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="nav-placeholder"></div>
+<div id="steps-placeholder"></div>
+
+<div class="page-wrapper">
+  <div class="checkout-layout">
+
+    <!-- LEFT: Form -->
+    <div>
+
+      <!-- Contact Details -->
+      <div class="checkout-form-card" style="margin-bottom:16px;">
+        <div class="checkout-section-title">Contact Details</div>
+
+        <div class="form-group">
+          <label class="form-label" for="fname">Full Name <span style="color:var(--red)">*</span></label>
+          <input type="text" id="fname" class="form-input" placeholder="e.g. Priya Kumar" />
+          <div class="form-error" id="err-fname">Please enter your name</div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="fphone">Phone Number <span style="color:var(--red)">*</span></label>
+            <input type="tel" id="fphone" class="form-input" placeholder="+1 (555) 000-0000" />
+            <div class="form-error" id="err-fphone">Please enter a valid phone number</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="femail">Email <span class="optional">(optional)</span></label>
+            <input type="email" id="femail" class="form-input" placeholder="you@email.com" />
+            <div class="form-error" id="err-femail">Please enter a valid email</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="faddress">Delivery Address <span style="color:var(--red)">*</span></label>
+          <textarea id="faddress" class="form-input" rows="3" placeholder="Street, Suburb, State, Postcode" style="resize:vertical;line-height:1.5;"></textarea>
+          <div class="form-error" id="err-faddress">Please enter your delivery address</div>
+        </div>
+      </div>
+
+      <!-- Delivery Time -->
+      <div class="checkout-form-card" style="margin-bottom:16px;">
+        <div class="checkout-section-title">Delivery Time</div>
+        <div class="form-group">
+          <label class="form-label" for="ftime">Select Time Slot <span style="color:var(--red)">*</span></label>
+          <select id="ftime" class="time-select">
+            <option value="">— Choose a time —</option>
+          </select>
+          <div class="form-error" id="err-ftime">Please select a delivery time</div>
+        </div>
+        <p style="font-size:0.78rem;color:var(--brown-soft);margin-top:4px;">
+          📍 Delivery available 7:00 AM to 11:00 AM in 15-minute slots
+        </p>
+      </div>
+
+      <!-- Discount Code -->
+      <div class="checkout-form-card" style="margin-bottom:16px;">
+        <div class="checkout-section-title">Discount Code</div>
+        <div class="discount-row">
+          <input type="text" id="fdiscount" class="form-input" placeholder="Enter promo code" style="text-transform:uppercase;" />
+          <button class="btn-apply" onclick="applyDiscount()">Apply</button>
+        </div>
+        <div class="discount-msg" id="discountMsg"></div>
+        <p style="font-size:0.72rem;color:var(--brown-soft);margin-top:8px;">Try: IDLI10 · WELCOME20 · NEWUSER15</p>
+      </div>
+
+      <!-- Promotions -->
+      <div class="checkout-form-card" style="margin-bottom:16px;">
+        <div class="checkout-section-title">Preferences</div>
+        <div class="checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="chkPromo" />
+            <span>📬 Sign me up for promotions and special offers from Idli Express</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="chkUpdates" />
+            <span>🔔 Send me order updates and delivery notifications via SMS</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="chkTerms" />
+            <span>I agree to the <a href="#" style="color:var(--gold);text-decoration:underline;">Terms & Conditions</a> and <a href="#" style="color:var(--gold);text-decoration:underline;">Privacy Policy</a></span>
+          </label>
+          <div class="form-error" id="err-chkTerms">Please accept the terms to continue</div>
+        </div>
+      </div>
+
+      <button class="btn-primary btn-gold" onclick="submitCheckout()" style="width:100%;border:none;cursor:pointer;font-family:inherit;font-size:1rem;">
+        Continue to Payment →
+      </button>
+
+    </div>
+
+    <!-- RIGHT: Order Summary -->
+    <div class="cart-sidebar">
+      <div class="cart-summary-card">
+        <div class="cart-summary-title">Your Order</div>
+        <div id="checkoutCartItems"></div>
+        <div style="height:1px;background:var(--border);margin:12px 0;"></div>
+        <div id="checkoutSummaryTotals"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="footer-placeholder"></div>
+
+<script src="js/app.js"></script>
+<script>
+document.getElementById('nav-placeholder').innerHTML = renderNav('checkout');
+document.getElementById('steps-placeholder').innerHTML = renderSteps(2);
+document.getElementById('footer-placeholder').innerHTML = renderFooter();
+
+// ─── POPULATE TIME SLOTS ──────────────────────────────────────
+const times = generateDeliveryTimes();
+const select = document.getElementById('ftime');
+times.forEach(t => {
+  const opt = document.createElement('option');
+  opt.value = t.value;
+  opt.textContent = t.label;
+  select.appendChild(opt);
+});
+
+// Pre-fill saved data
+const saved = CheckoutData.get();
+if (saved.name)    document.getElementById('fname').value = saved.name;
+if (saved.phone)   document.getElementById('fphone').value = saved.phone;
+if (saved.email)   document.getElementById('femail').value = saved.email;
+if (saved.address) document.getElementById('faddress').value = saved.address;
+if (saved.time)    select.value = saved.time;
+
+// ─── DISCOUNT ─────────────────────────────────────────────────
+let appliedDiscount = saved.discount || 0;
+let appliedCode = saved.discountCode || '';
+if (appliedCode) {
+  document.getElementById('fdiscount').value = appliedCode;
+  showDiscountApplied(appliedDiscount);
+}
+
+function applyDiscount() {
+  const code = document.getElementById('fdiscount').value.trim().toUpperCase();
+  const msg = document.getElementById('discountMsg');
+  if (DISCOUNT_CODES[code]) {
+    appliedDiscount = DISCOUNT_CODES[code];
+    appliedCode = code;
+    showDiscountApplied(appliedDiscount);
+    renderTotals();
+  } else {
+    msg.textContent = '✗ Invalid discount code. Please try again.';
+    msg.className = 'discount-msg error';
+    appliedDiscount = 0;
+    appliedCode = '';
+    renderTotals();
+  }
+}
+
+function showDiscountApplied(pct) {
+  const msg = document.getElementById('discountMsg');
+  msg.textContent = `✓ ${pct}% discount applied!`;
+  msg.className = 'discount-msg success';
+}
+
+// ─── RENDER ORDER ITEMS ───────────────────────────────────────
+function renderCheckoutItems() {
+  const el = document.getElementById('checkoutCartItems');
+  if (!el) return;
+  if (cart.items.length === 0) {
+    el.innerHTML = `<p style="font-size:0.85rem;color:var(--brown-soft);text-align:center;padding:12px 0;">Your cart is empty. <a href="index.html" style="color:var(--gold);">Add items →</a></p>`;
+    return;
+  }
+  let html = '';
+  cart.items.forEach(item => {
+    html += `
+    <div class="checkout-cart-item">
+      <img class="checkout-item-img" id="coimg-${item.key}" alt="${item.name}" style="display:none;"/>
+      <div style="width:50px;height:44px;border-radius:6px;background:var(--cream-mid);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;" id="cofb-${item.key}">${item.emoji}</div>
+      <div class="checkout-item-info">
+        <div class="checkout-item-name">${item.name} × ${item.qty}</div>
+        <div class="checkout-item-sub">${item.glutenFree ? '✓ GF' : '⚠ Gluten'}</div>
+      </div>
+      <span style="font-size:0.85rem;font-weight:700;color:var(--dark);flex-shrink:0;">$${(item.price * item.qty).toFixed(2)}</span>
+      <button class="checkout-item-remove" onclick="dropItem('${item.key}')" title="Remove item">×</button>
+    </div>`;
+  });
+  el.innerHTML = html;
+
+  cart.items.forEach(item => {
+    const img = document.getElementById(`coimg-${item.key}`);
+    const fb  = document.getElementById(`cofb-${item.key}`);
+    if (img && item.images && item.images.length) {
+      img.onload = () => { img.style.display = 'block'; if(fb) fb.style.display = 'none'; };
+      img.onerror = () => { img.style.display = 'none'; };
+      img.src = item.images[0];
+    }
+  });
+}
+
+function dropItem(key) {
+  cart.remove(key);
+  renderCheckoutItems();
+  renderTotals();
+}
+
+function renderTotals() {
+  const el = document.getElementById('checkoutSummaryTotals');
+  const sub = cart.subtotal;
+  const delivery = sub > 0 ? 2.00 : 0;
+  const discountAmt = (sub * appliedDiscount) / 100;
+  const total = Math.max(0, sub + delivery - discountAmt);
+
+  let html = `<div class="summary-row"><span>Subtotal</span><span>$${sub.toFixed(2)}</span></div>`;
+  html += `<div class="summary-row"><span>Delivery</span><span>$${delivery.toFixed(2)}</span></div>`;
+  if (appliedDiscount > 0) {
+    html += `<div class="summary-row" style="color:var(--green);"><span>Discount (${appliedDiscount}%)</span><span>−$${discountAmt.toFixed(2)}</span></div>`;
+  }
+  html += `<div class="summary-row total"><span>Total</span><span>$${total.toFixed(2)}</span></div>`;
+  el.innerHTML = html;
+}
+
+// ─── VALIDATE & SUBMIT ────────────────────────────────────────
+function validate(id, errId, condition) {
+  const el = document.getElementById(id);
+  const err = document.getElementById(errId);
+  if (err) {
+    err.classList.toggle('show', !condition);
+    el && el.classList.toggle('error', !condition);
+  }
+  return condition;
+}
+
+function submitCheckout() {
+  const name    = document.getElementById('fname').value.trim();
+  const phone   = document.getElementById('fphone').value.trim();
+  const email   = document.getElementById('femail').value.trim();
+  const address = document.getElementById('faddress').value.trim();
+  const time    = document.getElementById('ftime').value;
+  const terms   = document.getElementById('chkTerms').checked;
+
+  let valid = true;
+  valid = validate('fname',    'err-fname',    name.length >= 2) && valid;
+  valid = validate('fphone',   'err-fphone',   phone.length >= 6) && valid;
+  valid = validate('faddress', 'err-faddress', address.length >= 5) && valid;
+  valid = validate('ftime',    'err-ftime',    time !== '') && valid;
+
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    valid = validate('femail', 'err-femail', false) && valid;
+  }
+
+  if (!terms) {
+    document.getElementById('err-chkTerms').classList.add('show');
+    valid = false;
+  } else {
+    document.getElementById('err-chkTerms').classList.remove('show');
+  }
+
+  if (cart.items.length === 0) {
+    alert('Your cart is empty. Please add items before checking out.');
+    return;
+  }
+
+  if (!valid) {
+    document.querySelector('.form-error.show')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  // Save checkout data
+  const sub = cart.subtotal;
+  const delivery = sub > 0 ? 2.00 : 0;
+  const discountAmt = (sub * appliedDiscount) / 100;
+  const total = Math.max(0, sub + delivery - discountAmt);
+
+  CheckoutData.save({
+    name, phone, email, address, time,
+    discount: appliedDiscount,
+    discountCode: appliedCode,
+    promo: document.getElementById('chkPromo').checked,
+    updates: document.getElementById('chkUpdates').checked,
+    subtotal: sub,
+    delivery,
+    discountAmt,
+    total
+  });
+
+  window.location.href = 'payment.html';
+}
+
+// ─── INIT ─────────────────────────────────────────────────────
+renderCheckoutItems();
+renderTotals();
+cart.updateUI();
+</script>
+</body>
+</html>

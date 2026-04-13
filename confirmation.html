@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Idli Express — Order Confirmed!</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="nav-placeholder"></div>
+<div id="steps-placeholder"></div>
+
+<div class="page-wrapper">
+  <div class="confirm-wrapper">
+
+    <!-- Hero -->
+    <div class="confirm-hero fade-up">
+      <div class="confirm-checkmark">✓</div>
+      <h2>Order Confirmed!</h2>
+      <p>Thank you for your order. We're preparing your fresh South Indian breakfast.</p>
+      <div class="confirm-order-id" id="confirmOrderId">IE-000000</div>
+    </div>
+
+    <!-- Customer Details -->
+    <div class="confirm-detail-card fade-up">
+      <div class="confirm-detail-title">📋 Delivery Details</div>
+      <div class="confirm-detail-row">
+        <span class="confirm-detail-label">Name</span>
+        <span class="confirm-detail-value" id="cdName">—</span>
+      </div>
+      <div class="confirm-detail-row">
+        <span class="confirm-detail-label">Phone</span>
+        <span class="confirm-detail-value" id="cdPhone">—</span>
+      </div>
+      <div class="confirm-detail-row" id="cdEmailRow" style="display:none;">
+        <span class="confirm-detail-label">Email</span>
+        <span class="confirm-detail-value" id="cdEmail">—</span>
+      </div>
+      <div class="confirm-detail-row">
+        <span class="confirm-detail-label">Address</span>
+        <span class="confirm-detail-value" id="cdAddress" style="max-width:55%;line-height:1.5;">—</span>
+      </div>
+      <div class="confirm-detail-row">
+        <span class="confirm-detail-label">Delivery Time</span>
+        <span class="confirm-detail-value" id="cdTime">—</span>
+      </div>
+      <div class="confirm-detail-row">
+        <span class="confirm-detail-label">Payment</span>
+        <span class="confirm-detail-value" id="cdPayment">—</span>
+      </div>
+    </div>
+
+    <!-- Order Items -->
+    <div class="confirm-detail-card fade-up">
+      <div class="confirm-detail-title">🍽️ Your Order</div>
+      <div id="confirmedItems"></div>
+    </div>
+
+    <!-- Totals -->
+    <div class="confirm-detail-card fade-up">
+      <div class="confirm-detail-title">💰 Payment Summary</div>
+      <div id="confirmedTotals"></div>
+    </div>
+
+    <!-- Status tracker -->
+    <div class="confirm-detail-card fade-up">
+      <div class="confirm-detail-title">📍 Order Status</div>
+      <div id="statusTracker"></div>
+    </div>
+
+    <!-- Actions -->
+    <div class="confirm-actions fade-up">
+      <a href="index.html" class="btn-primary btn-gold" style="display:block;text-align:center;border-radius:100px;text-decoration:none;">
+        Order Again →
+      </a>
+      <button onclick="window.print()" class="btn-primary" style="border:none;">
+        🖨️ Print Receipt
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<div id="footer-placeholder"></div>
+
+<script src="js/app.js"></script>
+<script>
+document.getElementById('nav-placeholder').innerHTML = renderNav('');
+document.getElementById('steps-placeholder').innerHTML = renderSteps(4);
+document.getElementById('footer-placeholder').innerHTML = renderFooter();
+
+const order = CheckoutData.getOrder();
+const customer = order.customer || {};
+
+// Order ID
+document.getElementById('confirmOrderId').textContent = order.orderId || 'IE-000000';
+
+// Customer details
+document.getElementById('cdName').textContent = customer.name || '—';
+document.getElementById('cdPhone').textContent = customer.phone || '—';
+document.getElementById('cdAddress').textContent = customer.address || '—';
+
+if (customer.email) {
+  document.getElementById('cdEmail').textContent = customer.email;
+  document.getElementById('cdEmailRow').style.display = 'flex';
+}
+
+// Delivery time
+if (customer.time) {
+  const [hh, mm] = customer.time.split(':');
+  const h12 = parseInt(hh) > 12 ? parseInt(hh) - 12 : parseInt(hh);
+  const suffix = parseInt(hh) >= 12 ? 'PM' : 'AM';
+  document.getElementById('cdTime').textContent = `${h12}:${mm} ${suffix}`;
+}
+
+// Payment method
+const pmLabels = {
+  card: '💳 Credit / Debit Card',
+  apple: '🍎 Apple Pay',
+  google: '🔵 Google Pay',
+  cash: '💵 Cash on Delivery'
+};
+document.getElementById('cdPayment').textContent = pmLabels[order.paymentMethod] || '—';
+
+// Order items
+const itemsEl = document.getElementById('confirmedItems');
+const items = order.items || [];
+if (items.length === 0) {
+  itemsEl.innerHTML = '<p style="color:var(--brown-soft);font-size:0.85rem;">No items found.</p>';
+} else {
+  items.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'confirm-ordered-item';
+    row.innerHTML = `
+      <span class="confirm-ordered-item-name">${item.name}</span>
+      <span class="confirm-ordered-item-qty">${item.glutenFree ? '✓ GF' : '⚠ Gluten'} · ×${item.qty}</span>
+      <span style="font-weight:700;color:var(--dark);">$${(item.price * item.qty).toFixed(2)}</span>`;
+    itemsEl.appendChild(row);
+  });
+}
+
+// Totals
+const totalsEl = document.getElementById('confirmedTotals');
+const sub = customer.subtotal || 0;
+const delivery = customer.delivery || 0;
+const discount = customer.discountAmt || 0;
+const total = customer.total || 0;
+let totalsHtml = `<div class="confirm-detail-row"><span class="confirm-detail-label">Subtotal</span><span class="confirm-detail-value">$${Number(sub).toFixed(2)}</span></div>`;
+totalsHtml += `<div class="confirm-detail-row"><span class="confirm-detail-label">Delivery</span><span class="confirm-detail-value">$${Number(delivery).toFixed(2)}</span></div>`;
+if (discount > 0) {
+  totalsHtml += `<div class="confirm-detail-row" style="color:var(--green);"><span class="confirm-detail-label" style="color:var(--green);">Discount</span><span class="confirm-detail-value" style="color:var(--green);">−$${Number(discount).toFixed(2)}</span></div>`;
+}
+totalsHtml += `<div class="confirm-detail-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;"><span class="confirm-detail-label" style="font-weight:700;color:var(--dark);">Total Paid</span><span class="confirm-detail-value" style="font-size:1.1rem;">$${Number(total).toFixed(2)}</span></div>`;
+totalsEl.innerHTML = totalsHtml;
+
+// Status tracker
+const statusSteps = [
+  { icon: '✓', label: 'Order Received', done: true },
+  { icon: '👨‍🍳', label: 'Preparing', done: true },
+  { icon: '📦', label: 'Packed & Ready', done: false },
+  { icon: '🛵', label: 'Out for Delivery', done: false },
+  { icon: '🏠', label: 'Delivered', done: false }
+];
+
+let statusHtml = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">';
+statusSteps.forEach((s, i) => {
+  statusHtml += `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:50px;">
+      <div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;
+        background:${s.done ? 'var(--gold)' : 'var(--cream)'};
+        border:2px solid ${s.done ? 'var(--gold)' : 'var(--border)'};
+        color:${s.done ? 'var(--dark)' : 'var(--brown-soft)'};">
+        ${s.icon}
+      </div>
+      <span style="font-size:0.65rem;font-weight:700;text-align:center;color:${s.done ? 'var(--dark)' : 'var(--brown-soft)'};line-height:1.3;">${s.label}</span>
+    </div>`;
+  if (i < statusSteps.length - 1) {
+    statusHtml += `<div style="flex:0 0 16px;height:2px;background:${s.done ? 'var(--gold)' : 'var(--border)'};margin-bottom:16px;"></div>`;
+  }
+});
+statusHtml += '</div>';
+document.getElementById('statusTracker').innerHTML = statusHtml;
+
+cart.updateUI();
+</script>
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Idli Express — Menu</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="nav-placeholder"></div>
+
+<div class="page-wrapper">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-content">
+      <div class="hero-tag">Open · 7AM – 11AM Daily</div>
+      <h1>Authentic South Indian Breakfast</h1>
+      <p>Steamed with love, served with tradition. Order fresh idlis & vadas every morning.</p>
+      <div class="hero-divider"><span></span><em>✦</em><span></span></div>
+    </div>
+  </div>
+
+  <!-- ── CLASSICS ── -->
+  <div class="section-header page-section">
+    <div class="section-label">From Our Kitchen</div>
+    <div class="section-title">Classics</div>
+  </div>
+  <div class="menu-section page-section" id="menu-classics"></div>
+
+  <!-- ── COMBOS & SETS ── -->
+  <div class="section-header page-section">
+    <div class="section-label">Served Together</div>
+    <div class="section-title">Combos & Sets</div>
+  </div>
+  <div class="menu-section page-section" id="menu-combos"></div>
+
+  <!-- ── CHUTNEYS ── -->
+  <div class="section-header page-section">
+    <div class="section-label">House Made</div>
+    <div class="section-title">Chutneys</div>
+  </div>
+  <div class="menu-section page-section" id="menu-chutneys"></div>
+
+  <!-- ── SIDES ── -->
+  <div class="section-header page-section">
+    <div class="section-label">On the Side</div>
+    <div class="section-title">Accompaniments</div>
+  </div>
+  <div class="menu-section page-section" id="menu-sides"></div>
+
+  <div class="spacer-lg"></div>
+</div>
+
+<!-- Floating cart button -->
+<a href="cart.html" class="cart-fab hidden" id="cartFab">
+  🛒 View Cart
+  <span class="cart-fab-count">0</span>
+</a>
+
+<div id="footer-placeholder"></div>
+
+<script src="js/app.js"></script>
+<script>
+// ─── PRICES ──────────────────────────────────────────────────
+const PRICES = {
+  'idli': 3.50,
+  'medu-vada': 4.00,
+  'mini-combo': 7.50,
+  'full-set': 10.00,
+  'five-idli': 8.50,
+  'sambar-vada': 7.00,
+  'red-chutney': 1.50,
+  'white-chutney': 1.50,
+  'sambar': 2.00,
+  'idli-podi': 1.50,
+  'utensils': 0.00
+};
+
+// ─── RENDER MENU CARD ─────────────────────────────────────────
+function renderMenuCard(item) {
+  const price = PRICES[item.id] || 0.00;
+  const priceStr = price === 0 ? 'Free' : formatPrice(price);
+  const gfText = item.hasGluten ? 'Contains Gluten' : 'Gluten Free';
+
+  return `
+  <div class="menu-card fade-up" data-id="${item.id}">
+    <div class="menu-card-img-wrap">
+      <img class="menu-card-img" id="img-${item.id}" alt="${item.name}" style="display:none;" />
+      <div class="menu-card-img-fallback" id="fb-${item.id}">${item.emoji}</div>
+      <span class="gluten-badge ${item.hasGluten ? 'badge-g' : 'badge-gf'}" id="gbadge-${item.id}">
+        ${item.hasGluten ? '⚠ Gluten' : '✓ GF'}
+      </span>
+    </div>
+    <div class="menu-card-body">
+      <div class="menu-card-name">${item.name}</div>
+      <div class="menu-card-desc">${item.desc}</div>
+      <div class="menu-card-footer">
+        <div class="gluten-toggle" id="gtoggle-${item.id}">
+          <button class="gluten-toggle-btn${!item.hasGluten ? ' active' : ''}"
+            onclick="setGluten('${item.id}', false)" data-gf="false">GF</button>
+          <button class="gluten-toggle-btn${item.hasGluten ? ' active' : ''}"
+            onclick="setGluten('${item.id}', true)" data-gf="true">Gluten</button>
+        </div>
+        <button class="add-to-cart-btn" onclick="addItem('${item.id}', '${item.name}', ${price})">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          Add &nbsp;·&nbsp; ${priceStr}
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── GLUTEN STATE ─────────────────────────────────────────────
+const glutenState = {};
+
+function setGluten(id, isGluten) {
+  glutenState[id] = isGluten;
+  const toggle = document.getElementById(`gtoggle-${id}`);
+  if (toggle) {
+    toggle.querySelectorAll('.gluten-toggle-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.gf === String(isGluten));
+    });
+  }
+  const badge = document.getElementById(`gbadge-${id}`);
+  if (badge) {
+    badge.textContent = isGluten ? '⚠ Gluten' : '✓ GF';
+    badge.className = `gluten-badge ${isGluten ? 'badge-g' : 'badge-gf'}`;
+  }
+}
+
+// ─── ADD TO CART ──────────────────────────────────────────────
+function addItem(id, name, price) {
+  const glutenFree = !glutenState[id];
+  const allItems = Object.values(MENU_DATA).flat();
+  const menuItem = allItems.find(i => i.id === id);
+  cart.add({
+    id,
+    name,
+    price,
+    glutenFree,
+    images: menuItem ? menuItem.images : [],
+    emoji: menuItem ? menuItem.emoji : '🍽️',
+    sub: glutenFree ? 'Gluten Free' : 'Contains Gluten'
+  });
+
+  // Pop animation on button
+  const btn = document.querySelector(`[data-id="${id}"] .add-to-cart-btn`);
+  if (btn) {
+    btn.classList.remove('pop');
+    void btn.offsetWidth;
+    btn.classList.add('pop');
+  }
+}
+
+// ─── RENDER ALL SECTIONS ──────────────────────────────────────
+function renderSection(containerId, items) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = `<div class="menu-items-grid">${items.map(renderMenuCard).join('')}</div>`;
+
+  // Load images
+  items.forEach(item => {
+    loadImage(
+      document.getElementById(`img-${item.id}`),
+      document.getElementById(`fb-${item.id}`),
+      item.images
+    );
+    glutenState[item.id] = item.hasGluten;
+  });
+}
+
+// ─── INIT ─────────────────────────────────────────────────────
+document.getElementById('nav-placeholder').innerHTML = renderNav('menu');
+document.getElementById('footer-placeholder').innerHTML = renderFooter();
+
+renderSection('menu-classics', MENU_DATA.classics);
+renderSection('menu-combos', MENU_DATA.combos);
+renderSection('menu-chutneys', MENU_DATA.chutneys);
+renderSection('menu-sides', MENU_DATA.sides);
+
+cart.updateUI();
+</script>
+</body>
+</html>

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Idli Express — Payment</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="nav-placeholder"></div>
+<div id="steps-placeholder"></div>
+
+<div class="page-wrapper">
+  <div style="max-width:600px;margin:0 auto;padding:32px 24px 60px;">
+
+    <div class="payment-card">
+
+      <div class="payment-header">
+        <h2>Complete Payment</h2>
+        <p>Choose your preferred payment method to place your order</p>
+      </div>
+
+      <!-- Order total display -->
+      <div class="order-total-display">
+        <div>
+          <div class="label">Amount Due</div>
+          <div style="font-size:0.75rem;color:var(--brown-soft);margin-top:2px;" id="payDeliveryTime"></div>
+        </div>
+        <div class="amount" id="payTotal">$0.00</div>
+      </div>
+
+      <!-- Order mini summary -->
+      <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:24px;">
+        <div style="font-size:0.75rem;font-weight:700;color:var(--brown-soft);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Order Summary</div>
+        <div id="payItemsList"></div>
+      </div>
+
+      <!-- Payment methods -->
+      <div style="font-size:0.78rem;font-weight:700;color:var(--dark);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:12px;">Select Payment Method</div>
+      <div class="payment-methods">
+        <div class="payment-method-btn selected" onclick="selectMethod(this, 'card')" data-method="card">
+          <div class="pm-icon">💳</div>
+          <div class="pm-label">Credit / Debit Card</div>
+        </div>
+        <div class="payment-method-btn" onclick="selectMethod(this, 'apple')" data-method="apple">
+          <div class="pm-icon">🍎</div>
+          <div class="pm-label">Apple Pay</div>
+        </div>
+        <div class="payment-method-btn" onclick="selectMethod(this, 'google')" data-method="google">
+          <div class="pm-icon">🔵</div>
+          <div class="pm-label">Google Pay</div>
+        </div>
+        <div class="payment-method-btn" onclick="selectMethod(this, 'cash')" data-method="cash">
+          <div class="pm-icon">💵</div>
+          <div class="pm-label">Cash on Delivery</div>
+        </div>
+      </div>
+
+      <!-- Card fields (shown for card method) -->
+      <div id="cardFields" style="margin-bottom:20px;">
+        <div class="form-group">
+          <label class="form-label" for="cardNum">Card Number</label>
+          <input type="text" id="cardNum" class="form-input" placeholder="1234 5678 9012 3456" maxlength="19" oninput="formatCard(this)" />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label" for="cardExp">Expiry</label>
+            <input type="text" id="cardExp" class="form-input" placeholder="MM / YY" maxlength="7" oninput="formatExpiry(this)" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cardCvv">CVV</label>
+            <input type="text" id="cardCvv" class="form-input" placeholder="123" maxlength="4" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cardName">Name on Card</label>
+          <input type="text" id="cardName" class="form-input" placeholder="As it appears on card" />
+        </div>
+      </div>
+
+      <!-- Pay button -->
+      <button class="pay-now-btn" onclick="processPayment()" id="payBtn">
+        🔒 Pay Now
+      </button>
+
+      <p style="text-align:center;font-size:0.75rem;color:var(--brown-soft);margin-top:12px;">
+        🔐 Secured with 256-bit SSL encryption
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- Processing overlay -->
+<div class="processing-overlay hidden" id="processingOverlay">
+  <div class="spinner"></div>
+  <p>Processing your order…</p>
+</div>
+
+<div id="footer-placeholder"></div>
+
+<script src="js/app.js"></script>
+<script>
+document.getElementById('nav-placeholder').innerHTML = renderNav('');
+document.getElementById('steps-placeholder').innerHTML = renderSteps(3);
+document.getElementById('footer-placeholder').innerHTML = renderFooter();
+
+const data = CheckoutData.get();
+
+// Display total & delivery time
+document.getElementById('payTotal').textContent = data.total ? `$${Number(data.total).toFixed(2)}` : '$0.00';
+if (data.time) {
+  const t = data.time;
+  const [hh, mm] = t.split(':');
+  const h12 = parseInt(hh) > 12 ? parseInt(hh) - 12 : parseInt(hh);
+  const suffix = parseInt(hh) >= 12 ? 'PM' : 'AM';
+  document.getElementById('payDeliveryTime').textContent = `Delivery at ${h12}:${mm} ${suffix}`;
+}
+
+// Mini order summary
+const payList = document.getElementById('payItemsList');
+cart.items.forEach(item => {
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:6px;';
+  row.innerHTML = `<span style="color:var(--dark);">${item.name} × ${item.qty}</span>
+    <span style="font-weight:700;color:var(--dark);">$${(item.price * item.qty).toFixed(2)}</span>`;
+  payList.appendChild(row);
+});
+
+// ─── PAYMENT METHOD SELECTION ─────────────────────────────────
+let selectedMethod = 'card';
+
+function selectMethod(el, method) {
+  document.querySelectorAll('.payment-method-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedMethod = method;
+
+  const cardFields = document.getElementById('cardFields');
+  const payBtn = document.getElementById('payBtn');
+
+  if (method === 'card') {
+    cardFields.style.display = 'block';
+    payBtn.textContent = '🔒 Pay Now';
+  } else if (method === 'cash') {
+    cardFields.style.display = 'none';
+    payBtn.textContent = '✓ Place Order (Pay on Delivery)';
+  } else {
+    cardFields.style.display = 'none';
+    payBtn.textContent = `🔒 Pay with ${method === 'apple' ? 'Apple Pay' : 'Google Pay'}`;
+  }
+}
+
+// ─── CARD FORMATTING ──────────────────────────────────────────
+function formatCard(input) {
+  let v = input.value.replace(/\D/g, '').substring(0, 16);
+  input.value = v.replace(/(.{4})/g, '$1 ').trim();
+}
+
+function formatExpiry(input) {
+  let v = input.value.replace(/\D/g, '').substring(0, 4);
+  if (v.length >= 3) v = v.substring(0,2) + ' / ' + v.substring(2);
+  input.value = v;
+}
+
+// ─── PROCESS PAYMENT ──────────────────────────────────────────
+function processPayment() {
+  if (cart.items.length === 0) {
+    alert('No items in your order. Please go back to the menu.');
+    return;
+  }
+
+  // Basic card validation
+  if (selectedMethod === 'card') {
+    const num = document.getElementById('cardNum').value.replace(/\s/g, '');
+    const exp = document.getElementById('cardExp').value;
+    const cvv = document.getElementById('cardCvv').value;
+    const name = document.getElementById('cardName').value.trim();
+    if (num.length < 16 || exp.length < 5 || cvv.length < 3 || !name) {
+      alert('Please fill in all card details correctly.');
+      return;
+    }
+  }
+
+  // Show processing
+  document.getElementById('processingOverlay').classList.remove('hidden');
+
+  setTimeout(() => {
+    // Generate order
+    const orderId = 'IE-' + Date.now().toString().slice(-6);
+    const orderData = {
+      orderId,
+      items: cart.items,
+      customer: data,
+      paymentMethod: selectedMethod,
+      total: data.total,
+      placedAt: new Date().toISOString()
+    };
+
+    // Save order & simulate DB call
+    CheckoutData.saveOrder(orderData);
+    simulateDatabaseSave(orderData);
+
+    // Clear cart
+    cart.clear();
+
+    // Navigate to confirmation
+    window.location.href = 'confirmation.html';
+  }, 2200);
+}
+
+// ─── SIMULATE DB SAVE ─────────────────────────────────────────
+async function simulateDatabaseSave(orderData) {
+  // In production, replace with actual API call:
+  // await fetch('/api/orders', { method: 'POST', body: JSON.stringify(orderData), headers: {'Content-Type':'application/json'} });
+  console.log('Order saved to database:', orderData);
+  // Store all customer records
+  const allOrders = JSON.parse(localStorage.getItem('ie_all_orders') || '[]');
+  allOrders.push(orderData);
+  localStorage.setItem('ie_all_orders', JSON.stringify(allOrders));
+}
+
+cart.updateUI();
+</script>
+</body>
+</html>

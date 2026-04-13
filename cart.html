@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Idli Express — Cart</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="nav-placeholder"></div>
+<div id="steps-placeholder"></div>
+
+<div class="page-wrapper">
+  <div class="cart-layout" id="cartLayout">
+
+    <!-- LEFT: Items + Suggested -->
+    <div>
+      <div id="cartItemsPanel"></div>
+      <div id="suggestedSection"></div>
+    </div>
+
+    <!-- RIGHT: Summary -->
+    <div class="cart-sidebar" id="cartSidebar" style="display:none;">
+      <div class="cart-summary-card">
+        <div class="cart-summary-title">Order Summary</div>
+        <div id="summaryRows"></div>
+        <a href="checkout.html" class="btn-primary btn-gold">Proceed to Checkout →</a>
+        <a href="index.html" style="display:block;text-align:center;margin-top:12px;font-size:0.82rem;color:var(--brown-soft);">
+          ← Continue Shopping
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="footer-placeholder"></div>
+
+<script src="js/app.js"></script>
+<script>
+document.getElementById('nav-placeholder').innerHTML = renderNav('cart');
+document.getElementById('steps-placeholder').innerHTML = renderSteps(1);
+document.getElementById('footer-placeholder').innerHTML = renderFooter();
+
+// ─── RENDER CART ─────────────────────────────────────────────
+function renderCart() {
+  const panel = document.getElementById('cartItemsPanel');
+  const sidebar = document.getElementById('cartSidebar');
+  const layout = document.getElementById('cartLayout');
+
+  if (cart.items.length === 0) {
+    panel.innerHTML = `
+      <div class="empty-cart fade-up">
+        <div class="emoji">🍽️</div>
+        <h3>Your cart is empty</h3>
+        <p>Looks like you haven't added anything yet.</p>
+        <a href="index.html" class="btn-primary btn-gold" style="display:inline-block;padding:14px 32px;border-radius:100px;font-weight:700;font-size:0.9rem;">
+          Browse Menu →
+        </a>
+      </div>`;
+    sidebar.style.display = 'none';
+    renderSuggested();
+    return;
+  }
+
+  sidebar.style.display = 'block';
+
+  // Cart items
+  let itemsHtml = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div>
+        <div class="section-label">Your Order</div>
+        <div class="section-title" style="border:none;padding:0;margin:0;">Cart (${cart.count} item${cart.count !== 1 ? 's' : ''})</div>
+      </div>
+      <button onclick="clearCart()" style="font-size:0.78rem;color:var(--brown-soft);border:1px solid var(--border);padding:6px 14px;border-radius:100px;background:white;cursor:pointer;">
+        Clear All
+      </button>
+    </div>`;
+
+  cart.items.forEach(item => {
+    itemsHtml += `
+    <div class="cart-item-card fade-up" id="cart-card-${item.key}">
+      <img class="cart-item-img" id="cimg-${item.key}" alt="${item.name}" style="display:none;" />
+      <div style="width:80px;height:70px;border-radius:8px;background:var(--cream-mid);display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0;" id="cfb-${item.key}">${item.emoji}</div>
+      <div class="cart-item-info">
+        <div class="cart-item-name">${item.name}</div>
+        <div class="cart-item-sub">${item.glutenFree ? '✓ Gluten Free' : '⚠ Contains Gluten'}</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div class="qty-control">
+            <button class="qty-btn" onclick="changeQty('${item.key}', -1)">−</button>
+            <span class="qty-val" id="qty-${item.key}">${item.qty}</span>
+            <button class="qty-btn" onclick="changeQty('${item.key}', 1)">+</button>
+          </div>
+          <span style="font-size:0.85rem;font-weight:700;color:var(--dark);">$${(item.price * item.qty).toFixed(2)}</span>
+        </div>
+      </div>
+      <button class="cart-item-remove" onclick="removeItem('${item.key}')" title="Remove">×</button>
+    </div>`;
+  });
+
+  panel.innerHTML = itemsHtml;
+
+  // Load cart item images
+  cart.items.forEach(item => {
+    const img = document.getElementById(`cimg-${item.key}`);
+    const fb = document.getElementById(`cfb-${item.key}`);
+    if (img && item.images && item.images.length) {
+      img.onload = () => { img.style.display = 'block'; if(fb) fb.style.display = 'none'; };
+      img.onerror = () => { img.style.display = 'none'; if(fb) fb.style.display = 'flex'; };
+      img.src = item.images[0];
+    }
+  });
+
+  renderSummary();
+  renderSuggested();
+}
+
+// ─── SUMMARY ─────────────────────────────────────────────────
+function renderSummary() {
+  const sub = cart.subtotal;
+  const delivery = sub > 0 ? 2.00 : 0;
+  const total = sub + delivery;
+
+  let rows = '';
+  cart.items.forEach(item => {
+    rows += `<div class="summary-row">
+      <span>${item.name} × ${item.qty}</span>
+      <span>$${(item.price * item.qty).toFixed(2)}</span>
+    </div>`;
+  });
+  rows += `
+    <div class="summary-row"><span>Delivery</span><span>$${delivery.toFixed(2)}</span></div>
+    <div class="summary-row total"><span>Total</span><span>$${total.toFixed(2)}</span></div>`;
+
+  document.getElementById('summaryRows').innerHTML = rows;
+}
+
+// ─── SUGGESTED SIDES ─────────────────────────────────────────
+function renderSuggested() {
+  const sec = document.getElementById('suggestedSection');
+  const sides = MENU_DATA.sides;
+  let html = `
+    <div class="suggested-section">
+      <div class="section-label" style="padding:0 0 4px;">You Might Also Like</div>
+      <div class="section-title" style="border-bottom:1.5px solid var(--border);padding-bottom:10px;margin-bottom:16px;font-size:1.2rem;">Add Sides</div>
+      <div class="suggested-grid">`;
+  sides.forEach(item => {
+    html += `
+      <div class="suggested-card">
+        <img class="suggested-card-img" id="simg-${item.id}" alt="${item.name}" style="display:none;"/>
+        <div style="width:100%;height:100px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;background:var(--cream-mid);" id="sfb-${item.id}">${item.emoji}</div>
+        <div class="suggested-card-body">
+          <div class="suggested-card-name">${item.name}</div>
+          <button class="suggested-card-btn" onclick="addSuggested('${item.id}','${item.name}')">+ Add</button>
+        </div>
+      </div>`;
+  });
+  html += '</div></div>';
+  sec.innerHTML = html;
+
+  sides.forEach(item => {
+    const img = document.getElementById(`simg-${item.id}`);
+    const fb  = document.getElementById(`sfb-${item.id}`);
+    loadImage(img, fb, item.images);
+  });
+}
+
+// ─── ACTIONS ─────────────────────────────────────────────────
+function changeQty(key, delta) {
+  cart.updateQty(key, delta);
+  renderCart();
+}
+
+function removeItem(key) {
+  cart.remove(key);
+  renderCart();
+}
+
+function clearCart() {
+  if (confirm('Remove all items from your cart?')) {
+    cart.clear();
+    renderCart();
+  }
+}
+
+function addSuggested(id, name) {
+  const item = MENU_DATA.sides.find(s => s.id === id);
+  const prices = { 'sambar': 2.00, 'idli-podi': 1.50, 'utensils': 0.00 };
+  cart.add({
+    id, name,
+    price: prices[id] || 0,
+    glutenFree: true,
+    images: item ? item.images : [],
+    emoji: item ? item.emoji : '🍽️',
+    sub: 'Gluten Free'
+  });
+  renderCart();
+}
+
+// ─── INIT ─────────────────────────────────────────────────────
+renderCart();
+cart.updateUI();
+</script>
+</body>
+</html>
